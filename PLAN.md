@@ -249,7 +249,7 @@ The eval suite is the judge. Quality targets are never traded for latency.
 
 ### Golden set
 
-About 160 items in `eval/golden/{dev,test}.jsonl`, split 75/25. Test is touched only for final confirmation, never for tuning.
+175 items in `eval/golden/{dev,test}.jsonl`: 130 dev, 45 test, stratified per category. Test is touched only for final confirmation, never for tuning. `uv run assistant golden` validates the set: every gold section must exist in the knowledge base, refusal items carry no reference, and no item contains a phone-number pattern. A heading rename in the knowledge base therefore fails the check until the golden set is updated.
 
 | Category | Count | Pass rule |
 |---|---|---|
@@ -269,7 +269,7 @@ I draft the items from the knowledge base. **Mark reviews every item** before it
 
 - **Model:** `gpt-oss-20b` (MXFP4 GGUF, ~13 GB) on the RX 6950 XT via llama.cpp's Vulkan backend. It fits fully in 16 GB VRAM, is from a different family than Qwen (less self-preference bias), and handles structured JSON output well. Download: `ggml-org/gpt-oss-20b-GGUF`.
 - **Second opinion:** Gemma 4 26B-A4B (Q4, with CPU expert offload using the 64 GB RAM) on the ~15% of items where the primary judge is low-confidence.
-- **Calibration before trust:** Mark labels 40 dev items by hand. The judge must agree on ≥ 90%. If it doesn't, the rubric is fixed before any metric is reported.
+- **Calibration before trust:** Mark labels 40 dev answers by hand (31 from Qwen3.5-4B, 9 deliberately flawed so failures are represented). The judge must agree on ≥ 90% for both `correct` and `faithful`, with Cohen's kappa reported alongside. If it doesn't, the rubric is fixed before any metric is reported. Runbook: `docs/judge.md`.
 - **Faithfulness method:** the judge splits the answer into atomic claims and labels each as supported or unsupported by the exact retrieved context. Score = supported / total. An answer counts as faithful at 100% supported, and the item-level rate is what the > 90% target applies to.
 
 ### Runners
