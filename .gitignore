@@ -1,0 +1,23 @@
+# Secrets and host details
+.env
+.env.*
+!.env.example
+
+# Resume PDF contains the phone number
+knowledge/sources/
+
+# Model weights and caches
+models/
+*.gguf
+.cache/
+
+# Python
+__pycache__/
+.venv/
+*.pyc
+
+# Node
+node_modules/
+
+# Eval run output
+eval/runs/
