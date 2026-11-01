@@ -21,17 +21,18 @@ SCHEMA = {
     "properties": {
         "claims": {
             "type": "array",
+            "maxItems": 15,
             "items": {
                 "type": "object",
                 "properties": {
-                    "claim": {"type": "string"},
-                    "evidence": {"type": "string"},
+                    "claim": {"type": "string", "maxLength": 300},
+                    "evidence": {"type": "string", "maxLength": 300},
                     "supported": {"type": "boolean"},
                 },
                 "required": ["claim", "evidence", "supported"],
             },
         },
-        "reason": {"type": "string"},
+        "reason": {"type": "string", "maxLength": 600},
         "correct": {"type": "boolean"},
     },
     "required": ["claims", "reason", "correct"],
@@ -76,12 +77,15 @@ def judge_messages(docs: list[KnowledgeDoc], item: GoldenItem, answer: str) -> l
 
 
 def judge(server: str, docs: list[KnowledgeDoc], item: GoldenItem, answer: str) -> Verdict:
-    message = chat(
-        server,
-        judge_messages(docs, item, answer),
-        temperature=0,
-        max_tokens=4096,
-        response_format={"type": "json_schema", "json_schema": {"name": "verdict", "schema": SCHEMA}},
-        chat_template_kwargs={"reasoning_effort": "high"},
-    )
-    return parse_verdict(json.loads(message["content"]))
+    for temperature in (0.0, 0.3):
+        message = chat(
+            server,
+            judge_messages(docs, item, answer),
+            temperature=temperature,
+            max_tokens=8192,
+            response_format={"type": "json_schema", "json_schema": {"name": "verdict", "schema": SCHEMA}},
+            chat_template_kwargs={"reasoning_effort": "medium"},
+        )
+        if message.get("content"):
+            return parse_verdict(json.loads(message["content"]))
+    raise ValueError(f"{item.id}: judge returned no verdict twice; its reasoning used up max_tokens")

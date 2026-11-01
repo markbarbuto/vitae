@@ -103,12 +103,16 @@ def calibrate(root: Path, step: str, server: str) -> int:
         return 0
 
     if step == "judge":
-        rows = []
+        saved = folder / "judge.jsonl"
+        rows = read_jsonl(saved) if saved.exists() else []
+        done = {row["id"] for row in rows}
         for row in read_jsonl(answers):
+            if row["id"] in done:
+                continue
             verdict = judge(server, docs, items[row["id"]], row["answer"])
             rows.append({"id": row["id"], **asdict(verdict), "faithful": verdict.faithful})
-            print(f"{row['id']}: correct={verdict.correct} faithful={verdict.faithful}")
-        write_jsonl(folder / "judge.jsonl", rows)
+            write_jsonl(folder / "judge.jsonl", rows)
+            print(f"{row['id']}: correct={verdict.correct} faithful={verdict.faithful}", flush=True)
         return 0
 
     labels = {label.item_id: label for label in parse_sheet((folder / "labels.md").read_text(encoding="utf-8"))}
