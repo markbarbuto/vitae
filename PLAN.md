@@ -238,9 +238,10 @@ Both candidates meet latency under the cached-knowledge design. Phase 4 runs the
 | **Qwen3.5-2B** | up to ~10,000 tokens | ~1.6 s / ~2.4 s at 5,300 tokens **(predicted)** | ~11 tok/s |
 
 - If both clear quality, take the 4B unless its knowledge budget forces dropping content you want answerable.
+- If the 4B wins, add a `--detail summary` option to the portfolio exporter. It drops project body paragraphs, trip summaries and the 905 Gunners cards. Then re-measure with `uv run assistant knowledge`. Cut facts become refusals, so rerun the dev evals after cutting.
 - If neither clears quality, the next step is resizing the A1 shape above 2 OCPU / 12 GB. That is billed on Pay-As-You-Go, so price it first and ask Mark.
 
-The knowledge budget is enforced by a **token count in `assistant index`**: it fails when the prefix exceeds the configured model's budget. That keeps knowledge growth from silently breaking the latency target.
+The knowledge budget is enforced by a **token count in `assistant knowledge --check`**: it fails when the prefix exceeds the configured model's budget. That keeps knowledge growth from silently breaking the latency target.
 
 The eval suite is the judge. Quality targets are never traded for latency.
 
