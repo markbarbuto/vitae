@@ -1,8 +1,8 @@
 # Portfolio Assistant: Implementation Plan
 
-A self-hosted RAG assistant that answers questions about Mark Barbuto, in first person, on markbarbuto.com.
+A self-hosted assistant that answers questions about Mark Barbuto, in first person, on markbarbuto.com. It uses cache-augmented generation: the whole knowledge base sits in the model's cached context, and hybrid retrieval picks focus hints, gates refusals and records sources.
 
-Repo: `markbarbuto/vitae` (public). Status: plan. Nothing built yet. Numbers marked **(guess)** are unmeasured until Phase 0.
+Repo: `markbarbuto/vitae` (public). Status: Phase 0 measured (`docs/phase0.md`), nothing else built yet. Numbers marked **(guess)** or **(predicted)** are not yet measured end to end.
 
 ## 1. Goal and targets
 
@@ -40,7 +40,7 @@ Answered decisions so far:
 |---|---|---|
 | Language | Python 3.12, `uv` | Best-in-class ONNX embedding, BM25 and reranker libs. `uv` makes the lockfile and Docker build fast. |
 | API | FastAPI + `StreamingResponse` (SSE) | Native async streaming, tiny surface. |
-| RAG framework | **None.** About 400 lines of our own code. | The corpus is ~100 chunks. LlamaIndex/LangChain add hundreds of MB of RAM on a 12 GB box and abstractions we would tune around. Every knob stays one file away. |
+| Orchestration framework | **None.** About 400 lines of our own code. | The corpus is ~100 chunks. LlamaIndex/LangChain add hundreds of MB of RAM on a 12 GB box and abstractions we would tune around. Every knob stays one file away. |
 | LLM runtime | `llama.cpp` `llama-server` | OpenAI-compatible streaming, JSON-schema constrained output for the rewriter, per-request `chat_template_kwargs`, ARM weight repacking, thread control. Ollama wraps the same engine with fewer knobs. |
 | Generator | **Qwen3.5-4B** or **Qwen3.5-2B**, thinking off, GGUF `Q4_0`. A config switch; Phase 4 evals pick by quality. | Both meet latency under the cached-knowledge design (section 8). |
 | Embeddings | `fastembed` + `BAAI/bge-small-en-v1.5` (384-d, ONNX) | ~30 MB, CPU-fast, strong on short English passages. Chunk vectors precomputed at build time. Only the query is embedded at runtime. |
@@ -340,7 +340,7 @@ Each phase ends in a check that runs, not a judgment call.
 | 3 | **Retrieval.** Chunker, index build, hybrid + RRF, reranker, gate. | Retrieval eval on dev: recall@4 ≥ 0.97; refusal gate catches ≥ 90% of off-topic with ≤ 3% benign loss |
 | 4 | **Generation + API.** Cached-prefix prompt, slot save/restore, streaming SSE, follow-up handling, output checks. Run dev evals on 4B and 2B. | Model chosen; e2e dev run clears all section 1 required targets locally |
 | 5 | **Guards.** Normalization, classifier bakeoff (Prompt Guard 2 vs ProtectAI), canary. | Injection + private categories ≥ 97% on dev; benign look-alikes ≤ 3% false refusal |
-| 6 | **Tune.** One change at a time against dev (τ thresholds, k, context size, prompt wording, RAG Fusion flag), with a decision log. | Stretch targets attempted; then one run on **test** confirms required targets |
+| 6 | **Tune.** One change at a time against dev (τ thresholds, number of focus hints, knowledge prefix size, prompt wording), with a decision log. | Stretch targets attempted; then one run on **test** confirms required targets |
 | 7 | **Deploy.** Compose stack, Caddy, `deploy.sh`, Vercel proxy, backend rate limiting, frontend streaming client. | `eval e2e` + `eval latency` pass against **production** |
 | 8 | **Operate.** Uptime ping, the manual index update runbook (section 5), scorecard on the Vitae AI project page. | Runbook followed once end to end for a real KB edit |
 | 9 | **Future: automatic site sync.** Portfolio dispatch, reindex workflow, golden-set reference check, deploy over SSH (section 5). | A real `src/data` edit reaches production with no manual step |
