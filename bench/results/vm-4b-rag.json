@@ -1,0 +1,104 @@
+{
+  "summary": {
+    "runs": 8,
+    "ttft_p50_s": 31.966007409999747,
+    "ttft_p95_s": 33.448238310000306,
+    "total_p50_s": 39.07898693049992,
+    "prompt_tokens_total_p50": 897.0,
+    "prompt_tokens_processed_p50": 675.0,
+    "prefill_tps_p50": 21.168684595342995,
+    "decode_tps_p50": 5.4764821879041685,
+    "decode_tokens_p50": 40.0,
+    "answers_with_think_tag": 0
+  },
+  "results": [
+    {
+      "ttft_s": 32.16087413200057,
+      "total_s": 39.26482906500041,
+      "prompt_tokens_processed": 679,
+      "prompt_tokens_cached": 220,
+      "prompt_ms": 32036.909,
+      "prefill_tps": 21.19430435689036,
+      "decode_tokens": 40,
+      "decode_tps": 5.490177860646616,
+      "answer": "Yes, while developing the Path to Recovery app, I worked closely with registered physiotherapists and massage therapists to ensure the clinical content was accurate. As the sole developer and co-owner of that"
+    },
+    {
+      "ttft_s": 32.03288784100005,
+      "total_s": 39.21785570300017,
+      "prompt_tokens_processed": 675,
+      "prompt_tokens_cached": 220,
+      "prompt_ms": 31888.897,
+      "prefill_tps": 21.167242002757263,
+      "decode_tokens": 40,
+      "decode_tps": 5.428259015363922,
+      "answer": "Yes, I have worked with Azure as part of my role at Balanced+ Inc., where I deployed SQL database resources and managed backend synchronization for the Indigenous Supports from KHP app. Additionally, I utilized"
+    },
+    {
+      "ttft_s": 24.4381655469997,
+      "total_s": 31.57323380300022,
+      "prompt_tokens_processed": 514,
+      "prompt_tokens_cached": 383,
+      "prompt_ms": 24273.394,
+      "prefill_tps": 21.175448311843,
+      "decode_tokens": 40,
+      "decode_tps": 5.4661765608667165,
+      "answer": "At Balanced+ Inc., I lead the development of the Indigenous Supports app for Kids Help Phone using React Native, TypeScript, and .NET APIs deployed on Azure. I also parallelized report generation with ."
+    },
+    {
+      "ttft_s": 31.899126978999448,
+      "total_s": 38.995603131999815,
+      "prompt_tokens_processed": 676,
+      "prompt_tokens_cached": 220,
+      "prompt_ms": 31788.973,
+      "prefill_tps": 21.265235589712194,
+      "decode_tokens": 40,
+      "decode_tps": 5.4960332028048935,
+      "answer": "I have professionally used Oracle, SQL Server, PostgreSQL, SQLite, DynamoDB, Redis, Cassandra, and MySQL across my roles at Celestica Inc. and Balanced+ Inc. For instance, at Cele"
+    },
+    {
+      "ttft_s": 24.71865002100003,
+      "total_s": 31.81309017500007,
+      "prompt_tokens_processed": 517,
+      "prompt_tokens_cached": 380,
+      "prompt_ms": 24577.452,
+      "prefill_tps": 21.03554103167407,
+      "decode_tokens": 40,
+      "decode_tps": 5.49756951042311,
+      "answer": "At Balanced+ Inc., I lead the development of the Indigenous Supports from KHP mobile app for Kids Help Phone using React Native, TypeScript, and .NET APIs deployed in Azure. I also improved performance"
+    },
+    {
+      "ttft_s": 32.05409758699989,
+      "total_s": 39.16237072900003,
+      "prompt_tokens_processed": 675,
+      "prompt_tokens_cached": 220,
+      "prompt_ms": 31884.551,
+      "prefill_tps": 21.170127187928724,
+      "decode_tokens": 40,
+      "decode_tps": 5.4867878149416205,
+      "answer": "I received the People Driven Award for a component defect tracking tool I developed at Celestica Inc., which reduced turnaround time by about 67% and generated approximately $14,000"
+    },
+    {
+      "ttft_s": 33.448238310000306,
+      "total_s": 40.58669179000026,
+      "prompt_tokens_processed": 679,
+      "prompt_tokens_cached": 220,
+      "prompt_ms": 33316.407,
+      "prefill_tps": 20.380348937386916,
+      "decode_tokens": 40,
+      "decode_tps": 5.463616586363178,
+      "answer": "Yes, while developing the Path to Recovery mobile app in 2026, I worked closely with registered physiotherapists to ensure the clinical content was accurate. I served as the sole"
+    },
+    {
+      "ttft_s": 24.974361343000055,
+      "total_s": 32.121979473000465,
+      "prompt_tokens_processed": 519,
+      "prompt_tokens_cached": 382,
+      "prompt_ms": 24816.572,
+      "prefill_tps": 20.91344445155439,
+      "decode_tokens": 40,
+      "decode_tps": 5.456666304288059,
+      "answer": "At Balanced+ Inc., I parallelized report generation using .NET Channels and Quartz.NET, which improved performance by about 24%. I also containerized a CI pipeline using Docker for functional testing,"
+    }
+  ]
+}

@@ -1,0 +1,175 @@
+{
+  "summary": {
+    "cold_prompt_tokens": 5368,
+    "cold_wall_s": 296.3061785109994,
+    "warm_runs": 10,
+    "warm_ttft_p50_s": 5.873257471499528,
+    "warm_ttft_p95_s": 13.863220588999866,
+    "warm_processed_tokens": [
+      37,
+      35,
+      91,
+      40,
+      35,
+      87,
+      39,
+      36,
+      93,
+      39
+    ],
+    "warm_cached_tokens": [
+      5333,
+      5333,
+      5333,
+      5333,
+      5333,
+      5333,
+      5333,
+      5333,
+      5333,
+      5333
+    ],
+    "warm_ttft_s": [
+      5.57,
+      5.42,
+      13.67,
+      5.95,
+      5.61,
+      12.79,
+      5.9,
+      5.56,
+      13.86,
+      5.85
+    ],
+    "decode_tps_p50": 4.149431054427115,
+    "sample_answers": [
+      "I received the People Driven Award at Celestica Inc. for developing a component defect tracking tool that reduced turnaround time by ~67% and saved approximately $14,000. I",
+      "I have used SQL Server, PostgreSQL, SQLite, Oracle, DynamoDB, Redis, and Cassandra professionally. For example, at Balanced+ Inc., I deployed SQL Server resources for the \"Indigenous Supports",
+      "At Celestica, I integrated 500+ unit and integration tests into the .NET API pipeline using Xunit, Moq, and FluentAssertions."
+    ]
+  },
+  "cold": {
+    "ttft_s": 294.6187768200007,
+    "total_s": 296.30578419200083,
+    "prompt_tokens_processed": 5368,
+    "prompt_tokens_cached": 0,
+    "prompt_ms": 294427.199,
+    "prefill_tps": 18.23201123480443,
+    "decode_tokens": 8,
+    "decode_tps": 4.151326526739287,
+    "answer": "I primarily use Xunit, Moq,",
+    "wall_s": 296.3061785109994
+  },
+  "warm": [
+    {
+      "ttft_s": 5.567930162999801,
+      "total_s": 14.986585630000263,
+      "prompt_tokens_processed": 37,
+      "prompt_tokens_cached": 5333,
+      "prompt_ms": 5546.629,
+      "prefill_tps": 6.670718376873594,
+      "decode_tokens": 40,
+      "decode_tps": 4.140914250160063,
+      "answer": "I received the People Driven Award at Celestica Inc. for developing a component defect tracking tool that reduced turnaround time by ~67% and saved approximately $14,000. I"
+    },
+    {
+      "ttft_s": 5.4234171219995915,
+      "total_s": 14.845487523999509,
+      "prompt_tokens_processed": 35,
+      "prompt_tokens_cached": 5333,
+      "prompt_ms": 5402.068,
+      "prefill_tps": 6.4790002643432105,
+      "decode_tokens": 40,
+      "decode_tps": 4.139427377090052,
+      "answer": "I have used SQL Server, PostgreSQL, SQLite, Oracle, DynamoDB, Redis, and Cassandra professionally. For example, at Balanced+ Inc., I deployed SQL Server resources for the \"Indigenous Supports"
+    },
+    {
+      "ttft_s": 13.668889701999433,
+      "total_s": 21.097708022000006,
+      "prompt_tokens_processed": 91,
+      "prompt_tokens_cached": 5333,
+      "prompt_ms": 13646.504,
+      "prefill_tps": 6.668374552193001,
+      "decode_tokens": 32,
+      "decode_tps": 4.173299070996702,
+      "answer": "At Celestica, I integrated 500+ unit and integration tests into the .NET API pipeline using Xunit, Moq, and FluentAssertions."
+    },
+    {
+      "ttft_s": 5.9501123330001064,
+      "total_s": 15.41259705199991,
+      "prompt_tokens_processed": 40,
+      "prompt_tokens_cached": 5333,
+      "prompt_ms": 5928.165,
+      "prefill_tps": 6.747450517993342,
+      "decode_tokens": 40,
+      "decode_tps": 4.121534542422479,
+      "answer": "At Celestica Inc., I worked as an IT Application Developer from May 2022 to April 2024, where I led full-stack development and maintenance of a global manufacturing S"
+    },
+    {
+      "ttft_s": 5.608033995000369,
+      "total_s": 14.938309633000245,
+      "prompt_tokens_processed": 35,
+      "prompt_tokens_cached": 5333,
+      "prompt_ms": 5586.577,
+      "prefill_tps": 6.265017022051249,
+      "decode_tokens": 40,
+      "decode_tps": 4.180141818278088,
+      "answer": "Professionally, I have worked with SQL Server at Balanced+ Inc., where I managed resources for the \"Indigenous Supports from KHP\" mobile app and built a custom headless CMS. I"
+    },
+    {
+      "ttft_s": 12.785699220999959,
+      "total_s": 22.25670249199993,
+      "prompt_tokens_processed": 87,
+      "prompt_tokens_cached": 5333,
+      "prompt_ms": 12764.146,
+      "prefill_tps": 6.8159671630205425,
+      "decode_tokens": 40,
+      "decode_tps": 4.118042092725637,
+      "answer": "Professionally, I have used SQL Server, Oracle, PostgreSQL, SQLite, DynamoDB, Redis, and Cassandra. I'd rather chat about my favorite travel destinations directly, so feel free to reach"
+    },
+    {
+      "ttft_s": 5.897760727999412,
+      "total_s": 15.197446334999768,
+      "prompt_tokens_processed": 39,
+      "prompt_tokens_cached": 5333,
+      "prompt_ms": 5876.78,
+      "prefill_tps": 6.636287218510817,
+      "decode_tokens": 40,
+      "decode_tps": 4.193905094508576,
+      "answer": "Yes, while working on the Path to Recovery mobile app, I collaborated with licensed physiotherapists and RMTs to gather requirements and ensure the app delivered an accurate physio experience. Additionally"
+    },
+    {
+      "ttft_s": 5.55523505400015,
+      "total_s": 15.293778526000096,
+      "prompt_tokens_processed": 36,
+      "prompt_tokens_cached": 5333,
+      "prompt_ms": 5534.665,
+      "prefill_tps": 6.504458716110189,
+      "decode_tokens": 40,
+      "decode_tps": 4.004930788634541,
+      "answer": "At Balanced+ Inc., I led the development of the \"Indigenous Supports from KHP\" mobile app for Kids Help Phone using React Native, TypeScript, and .NET APIs, which was recognized with"
+    },
+    {
+      "ttft_s": 13.863220588999866,
+      "total_s": 23.243437427000572,
+      "prompt_tokens_processed": 93,
+      "prompt_tokens_cached": 5333,
+      "prompt_ms": 13840.829,
+      "prefill_tps": 6.719250703841511,
+      "decode_tokens": 40,
+      "decode_tps": 4.157947858694167,
+      "answer": "I've used SQL Server, PostgreSQL, SQLite, Oracle, and DynamoDB professionally. At Celestica, I resolved critical production data incidents in Oracle SQL Developer, and at Balanced+ Inc., I deployed"
+    },
+    {
+      "ttft_s": 5.848754214999644,
+      "total_s": 15.225565636999818,
+      "prompt_tokens_processed": 39,
+      "prompt_tokens_cached": 5333,
+      "prompt_ms": 5827.727,
+      "prefill_tps": 6.692146011643992,
+      "decode_tokens": 40,
+      "decode_tps": 4.1595350194452925,
+      "answer": "At Balanced+ Inc., I parallelized report generation using .NET Channels & Quartz.NET, which improved performance by approximately 24%. I'd be happy to chat directly about my other interests, like"
+    }
+  ]
+}
