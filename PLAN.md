@@ -153,6 +153,7 @@ There is no drift check against the site's Vitae AI card or the resume. Keeping 
 
 ```bash
 npm --prefix ../portfolio run export-knowledge -- --out ../vitae/knowledge/site
+uv run assistant knowledge --check   # regenerates self.md, fails if the prefix is over the active model's budget
 uv run assistant index
 uv run assistant eval retrieval
 ./deploy/deploy.sh
