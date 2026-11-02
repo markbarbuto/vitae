@@ -57,7 +57,20 @@ The current rubric passes the gate at exactly 90%. Known limits:
 
 - **Padding.** The judge cannot tell useful extra detail from padding. With an `off_topic` field it flagged harmless extras on 13 correct answers and still missed the two Mark objected to (benign-07, resume-07). Answer focus and length belong to Phase 4's prompt and output checks.
 - **Run-to-run noise.** Verdicts on followup-11, multi-01 and multi-05 changed between runs when only unrelated rubric text changed.
-- **Overfitting.** The rubric was chosen on these 40 answers, so 90% overstates it. A fresh blind batch confirms it.
+- **Overfitting.** The rubric was chosen on these 40 answers, so 90% overstates it. The holdout below checks it.
+
+### Holdout
+
+`eval/calibration/holdout/` holds 15 fresh Qwen3.5-4B answers to dev items the tuning set never used (`--set holdout`), none perturbed. Mark labelled them blind, and the rubric was not changed afterwards:
+
+| Label | Agreement | Kappa |
+|---|---|---|
+| `correct` | 14/15 = 93.3% | 0.63 |
+| `faithful` | 13/15 = 86.7% | 0.00 |
+
+Mark labelled all 15 faithful, so any judge `n` is a disagreement and kappa is 0 by construction. Both faithfulness misses are false alarms: on multi-08 the judge quoted the wrong evidence and missed "~99.3% test accuracy" in `projects.md`, and on followup-12 it flagged the emphasis "critical for Vitae AI". The multi-08 miss also made that answer incorrect.
+
+Across all 55 answers, agreement is 50/55 (90.9%) on `correct` and 51/55 (92.7%) on `faithful`. Mark accepted the judge as is. It is stricter than Mark on faithfulness, so eval faithfulness scores are a slight underestimate. If that matters later, a recheck pass that searches the knowledge base again for each unsupported claim is the fix, measured on a new blind batch.
 
 ## Why kappa as well as agreement
 
