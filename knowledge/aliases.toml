@@ -1,0 +1,7 @@
+# Short forms visitors type, expanded before retrieval. Matched as whole words, ignoring case.
+
+[aliases]
+"KHP" = "Kids Help Phone"
+"U of T" = "University of Toronto"
+"UofT" = "University of Toronto"
+"r/place" = "Scalable r/place clone"
