@@ -7,6 +7,7 @@ from vitae.knowledge import budget_rows, load_knowledge, render_self
 
 CONFIG = """
 active_model = "small"
+contact_email = "me@example.com"
 system_prompt_tokens = 300
 
 [models."small"]

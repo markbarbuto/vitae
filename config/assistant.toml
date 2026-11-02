@@ -2,13 +2,15 @@
 # so what the assistant says about itself changes in the same commit as the deployment.
 
 active_model = "qwen3.5-4b"
+contact_email = "markbarbuto@outlook.com"
 system_prompt_tokens = 300
 
 [models."qwen3.5-4b"]
 name = "Qwen3.5-4B"
 file = "Qwen_Qwen3.5-4B-Q4_0.gguf"
 quantization = "Q4_0"
-prefix_budget_tokens = 3000
+# Phase 4: the full 5,177-token prefix with three short hints predicts a 7.2 s follow-up p95 on the VM. Each extra 1,000 cached tokens adds about 0.9 s, so 5,500 leaves about 7.5 s.
+prefix_budget_tokens = 5500
 
 [models."qwen3.5-2b"]
 name = "Qwen3.5-2B"

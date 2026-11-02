@@ -14,6 +14,7 @@ class Model:
 @dataclass(frozen=True)
 class Config:
     active_model: str
+    contact_email: str
     models: dict[str, Model]
     system_prompt_tokens: int
     tokenizer_url: str
@@ -46,6 +47,7 @@ def parse_config(text: str) -> Config:
         raise ValueError(f"active_model {raw['active_model']!r} is not one of {sorted(models)}")
     return Config(
         active_model=raw["active_model"],
+        contact_email=raw["contact_email"],
         models=models,
         system_prompt_tokens=raw["system_prompt_tokens"],
         tokenizer_url=raw["tokenizer"]["url"],

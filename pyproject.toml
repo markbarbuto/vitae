@@ -5,8 +5,10 @@ description = "Self-hosted assistant that answers questions about Mark Barbuto"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "bm25s==0.3.16",
+    "fastapi==0.120.4",
     "fastembed==0.9.1",
     "tokenizers==0.22.1",
+    "uvicorn==0.38.0",
 ]
 
 [project.scripts]

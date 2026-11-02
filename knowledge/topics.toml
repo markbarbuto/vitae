@@ -1,5 +1,5 @@
 # Groups the sections that describe the same thing, such as a job told once by the resume and once by the site.
-# Retrieval ranks topics, topic names and keywords are part of every chunk's search text, and focus hints name topics. `assistant golden` fails if a section is in no topic or in two.
+# Retrieval ranks topics, topic names and keywords are part of every chunk's search text, and focus hints name topics by their short `hint`, or their name when it has none. `assistant golden` fails if a section is in no topic or in two.
 
 [topics."Bio"]
 sections = ["about.md#Bio", "site/profile.md#About me"]
@@ -8,6 +8,7 @@ sections = ["about.md#Bio", "site/profile.md#About me"]
 sections = ["about.md#Open to work"]
 
 [topics."What I want to work on next"]
+hint = "Next work"
 sections = ["about.md#What I want to work on next"]
 
 [topics."How I work"]
@@ -17,14 +18,17 @@ sections = ["about.md#How I work"]
 sections = ["resume.md#Location and contact", "site/profile.md#Contact"]
 
 [topics."Work experience: current job, Software Developer at Balanced+"]
+hint = "Balanced+ job"
 keywords = "career, job, employer, work history, professional experience"
 sections = ["resume.md#Software Developer at Balanced+ Inc. (July 2024 to present)", "site/experience.md#Software Developer at BALANCED+ (Jul 2024 — Present)"]
 
 [topics."Work experience: IT Application Developer at Celestica"]
+hint = "Celestica job"
 keywords = "career, job, employer, work history, professional experience"
 sections = ["resume.md#IT Application Developer at Celestica Inc. (May 2022 to April 2024)", "site/experience.md#IT Application Developer at Celestica (May 2022 — Apr 2024)"]
 
 [topics."Work experience: IT Software Developer at Green P.I."]
+hint = "Green P.I. job"
 keywords = "career, job, employer, work history, professional experience"
 sections = ["resume.md#IT Software Developer at Green P.I. Inc. (May 2021 to August 2021)", "site/experience.md#IT Software Developer at Green P.I. (May 2021 — Aug 2021)"]
 
@@ -44,12 +48,15 @@ sections = [
 ]
 
 [topics."Project: Indigenous Supports from KHP"]
+hint = "KHP app"
 sections = ["site/projects.md#Indigenous Supports from KHP (2026)", "about.md#My proudest work: the Indigenous Supports from KHP app"]
 
 [topics."Project: Path to Recovery"]
+hint = "Path to Recovery"
 sections = ["resume.md#Project: Path to Recovery mobile app", "site/projects.md#Path to Recovery (2026)"]
 
 [topics."Project: Vitae AI, this assistant"]
+hint = "Vitae AI"
 sections = [
     "resume.md#Project: Vitae AI",
     "site/projects.md#Vitae AI (2026)",
@@ -59,9 +66,11 @@ sections = [
 ]
 
 [topics."Project: Handwritten digit classifier"]
+hint = "Digit classifier"
 sections = ["resume.md#Project: MNIST image classification model", "site/projects.md#Handwritten Digit Classifier (2021)"]
 
 [topics."Project: Scalable r/place clone"]
+hint = "r/place clone"
 sections = ["resume.md#Project: Scalable r/place clone"]
 
 [topics."905 Gunners FC"]

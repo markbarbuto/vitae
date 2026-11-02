@@ -55,6 +55,11 @@ def load_topics(path: Path) -> dict[str, Topic]:
     return {section: Topic(name, entry.get("keywords", "")) for name, entry in topics.items() for section in entry["sections"]}
 
 
+def load_hints(path: Path) -> dict[str, str]:
+    topics = tomllib.loads(path.read_text(encoding="utf-8"))["topics"]
+    return {name: entry.get("hint", name) for name, entry in topics.items()}
+
+
 def topic_problems(path: Path, known_sections: set[str]) -> list[str]:
     topics = tomllib.loads(path.read_text(encoding="utf-8"))["topics"]
     listed = Counter(section for entry in topics.values() for section in entry["sections"])
