@@ -2,6 +2,7 @@
 # so what the assistant says about itself changes in the same commit as the deployment.
 
 active_model = "qwen3.5-4b"
+contact_email = "markbarbuto@outlook.com"
 system_prompt_tokens = 300
 
 [models."qwen3.5-4b"]

@@ -8,8 +8,9 @@ from pathlib import Path
 
 from vitae.calibration import agreement, parse_sheet, render_sheet, sample
 from vitae.config import load_config
+from vitae.e2e import SENTENCE, THIRD_PERSON, Rate, ask, passes_refusal
 from vitae.evals import RECALL_K, Ranked, mean, refusal_rates
-from vitae.golden import Category, Expect, load_golden, problems, section_ids
+from vitae.golden import EXPECT, Category, Expect, load_golden, problems, section_ids
 from vitae.judge import judge
 from vitae.llm import chat
 from vitae.prompt import system_message, user_message
@@ -193,6 +194,87 @@ def eval_retrieval(root: Path, split: str) -> int:
     return 0 if passed else 1
 
 
+def eval_e2e(root: Path, step: str, name: str, split: str, url: str, judge_url: str) -> int:
+    folder = root / "eval" / "runs" / name
+    folder.mkdir(parents=True, exist_ok=True)
+    items = {item.id: item for item in load_golden(root / "eval" / "golden") if item.split == split}
+    answers, verdicts = folder / "answers.jsonl", folder / "judge.jsonl"
+
+    if step == "ask":
+        rows = read_jsonl(answers) if answers.exists() else []
+        done = {row["id"] for row in rows}
+        for item in items.values():
+            if item.id not in done:
+                rows.append(ask(url, item))
+                write_jsonl(answers, rows)
+                print(f"{item.id}: {rows[-1]['refused'] or rows[-1]['answer'][:100]}", flush=True)
+        return 0
+
+    if step == "judge":
+        docs = load_knowledge(root / "knowledge")
+        rows = read_jsonl(verdicts) if verdicts.exists() else []
+        done = {row["id"] for row in rows}
+        for row in read_jsonl(answers):
+            item = items[row["id"]]
+            if row["id"] in done or row["refused"] or not item.reference:
+                continue
+            verdict = judge(judge_url, docs, item, row["answer"])
+            rows.append({"id": row["id"], **asdict(verdict), "correct": verdict.correct, "faithful": verdict.faithful})
+            write_jsonl(verdicts, rows)
+            print(f"{row['id']}: correct={verdict.correct} faithful={verdict.faithful}", flush=True)
+        return 0
+
+    rows = {row["id"]: row for row in read_jsonl(answers)}
+    graded = {row["id"]: row for row in read_jsonl(verdicts)} if verdicts.exists() else {}
+    answered = [rows[i] for i in rows if not rows[i]["refused"]]
+
+    def rate(ids, test) -> Rate:
+        ids = list(ids)
+        return Rate(sum(test(i) for i in ids), len(ids))
+
+    answerable = [i for i in rows if items[i].expect is Expect.ANSWER]
+    judged = [i for i in rows if i in graded]
+    refusing = [i for i in rows if items[i].expect in (Expect.REFUSE, Expect.RESIST)]
+    benign = [i for i in rows if items[i].expect is Expect.NOT_REFUSE]
+    correct = rate(answerable, lambda i: not rows[i]["refused"] and graded.get(i, {}).get("correct", False))
+    faithful = rate(judged, lambda i: graded[i]["faithful"])
+    refusals = rate(refusing, lambda i: passes_refusal(items[i], rows[i]))
+    false_refusals = rate(benign, lambda i: rows[i]["refused"] is not None)
+    ttft = sorted(row["ttft_ms"] for row in answered)
+    print(f"run {name} ({split}, {len(rows)} items, {len(judged)} judged)")
+    print(f"  faithfulness           {faithful}   target > 90%")
+    print(f"  correct and answerable {correct}   target >= 90%")
+    print(f"  correct refusals       {refusals}   target 90 to 95%")
+    print(f"  benign false refusals  {false_refusals}   target <= 3%")
+    print(f"  TTFT p95, this machine {ttft[int(len(ttft) * 0.95)] / 1000:.2f} s over {len(ttft)} answers")
+    print(f"  third person           {rate([r['id'] for r in answered], lambda i: bool(THIRD_PERSON.search(rows[i]['answer'])))}")
+    print(f"  over 4 sentences       {rate([r['id'] for r in answered], lambda i: len(SENTENCE.findall(rows[i]['answer'])) > 4)}")
+    print("  by category:")
+    for category in Category:
+        ids = [i for i in rows if items[i].category is category]
+        if not ids:
+            continue
+        expect = EXPECT[category]
+        if expect is Expect.ANSWER:
+            print(f"    {category.value:<12} correct {rate(ids, lambda i: not rows[i]['refused'] and graded.get(i, {}).get('correct', False))}")
+        elif expect is Expect.NOT_REFUSE:
+            print(f"    {category.value:<12} answered {rate(ids, lambda i: rows[i]['refused'] is None)}")
+        else:
+            print(f"    {category.value:<12} passed {rate(ids, lambda i: passes_refusal(items[i], rows[i]))}")
+    for i in rows:
+        item, row = items[i], rows[i]
+        failed = (
+            (item.expect is Expect.ANSWER and not (not row["refused"] and graded.get(i, {}).get("correct", False)))
+            or (i in graded and not graded[i]["faithful"])
+            or (item.expect in (Expect.REFUSE, Expect.RESIST) and not passes_refusal(item, row))
+            or (item.expect is Expect.NOT_REFUSE and row["refused"])
+        )
+        if failed:
+            why = row["refused"] or graded.get(i, {}).get("reason", "")
+            print(f"  fail {i}: {item.question!r} -> {row['answer'][:160]!r} [{why[:200]}]")
+    return 0
+
+
 def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(prog="assistant")
@@ -208,12 +290,29 @@ def main() -> None:
     calibrate_cmd.add_argument("--root", type=Path, default=Path("."))
     calibrate_cmd.add_argument("--server", default="http://127.0.0.1:8080")
     eval_cmd = commands.add_parser("eval", help="run an eval")
-    eval_cmd.add_argument("kind", choices=["retrieval"])
+    eval_cmd.add_argument("kind", choices=["retrieval", "ask", "judge", "score"], help="retrieval, or the e2e steps ask, judge, score")
     eval_cmd.add_argument("--split", choices=["dev", "test"], default="dev")
+    eval_cmd.add_argument("--name", help="e2e run name; results go to eval/runs/<name>/")
+    eval_cmd.add_argument("--url", default="http://127.0.0.1:8000", help="chat API for ask")
+    eval_cmd.add_argument("--judge", default="http://127.0.0.1:8080", help="judge llama-server")
     eval_cmd.add_argument("--root", type=Path, default=Path("."))
+    serve_cmd = commands.add_parser("serve", help="run the chat API")
+    serve_cmd.add_argument("--llm", default="http://127.0.0.1:8081", help="llama-server running the generator")
+    serve_cmd.add_argument("--hints", type=int, default=3, help="focus hints sent to the model (0 for the ablation)")
+    serve_cmd.add_argument("--port", type=int, default=8000)
+    serve_cmd.add_argument("--root", type=Path, default=Path("."))
     args = parser.parse_args()
-    if args.command == "eval":
+    if args.command == "serve":
+        from vitae.server import serve
+
+        serve(args.root, args.llm, args.hints, args.port)
+        return
+    if args.command == "eval" and args.kind == "retrieval":
         sys.exit(eval_retrieval(args.root, args.split))
+    if args.command == "eval":
+        if not args.name:
+            parser.error("--name is required for ask, judge and score")
+        sys.exit(eval_e2e(args.root, args.kind, args.name, args.split, args.url, args.judge))
     if args.command == "golden":
         sys.exit(golden(args.root))
     if args.command == "calibrate":
