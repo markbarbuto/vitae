@@ -38,6 +38,11 @@ embedder = "BAAI/bge-small-en-v1.5"
 keyword = "BM25"
 fusion = "reciprocal rank fusion"
 reranker = "a cross-encoder reranker"
+embedder_repo = "Qdrant/bge-small-en-v1.5-onnx-Q"
+embedder_revision = "aa8f8b06"
+reranker_repo = "Xenova/ms-marco-MiniLM-L-6-v2"
+reranker_revision = "a0914435"
+refuse_below = 0.0
 
 [benchmark]
 classic_rag_ttft_seconds = 32

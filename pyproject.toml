@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "Self-hosted assistant that answers questions about Mark Barbuto"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "bm25s==0.3.16",
+    "fastembed==0.9.1",
     "tokenizers==0.22.1",
 ]
 

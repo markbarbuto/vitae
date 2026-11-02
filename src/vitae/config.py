@@ -26,6 +26,11 @@ class Config:
     keyword: str
     fusion: str
     reranker: str
+    embedder_repo: str
+    embedder_revision: str
+    reranker_repo: str
+    reranker_revision: str
+    refuse_below: float
     classic_rag_ttft_seconds: float
     cached_ttft_seconds: float
 
@@ -53,6 +58,11 @@ def parse_config(text: str) -> Config:
         keyword=raw["retrieval"]["keyword"],
         fusion=raw["retrieval"]["fusion"],
         reranker=raw["retrieval"]["reranker"],
+        embedder_repo=raw["retrieval"]["embedder_repo"],
+        embedder_revision=raw["retrieval"]["embedder_revision"],
+        reranker_repo=raw["retrieval"]["reranker_repo"],
+        reranker_revision=raw["retrieval"]["reranker_revision"],
+        refuse_below=raw["retrieval"]["refuse_below"],
         classic_rag_ttft_seconds=raw["benchmark"]["classic_rag_ttft_seconds"],
         cached_ttft_seconds=raw["benchmark"]["cached_ttft_seconds"],
     )

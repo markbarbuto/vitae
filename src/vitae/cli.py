@@ -8,10 +8,13 @@ from pathlib import Path
 
 from vitae.calibration import agreement, parse_sheet, render_sheet, sample
 from vitae.config import load_config
-from vitae.golden import Category, load_golden, problems, section_ids
+from vitae.evals import RECALL_K, Ranked, mean, refusal_rates
+from vitae.golden import Category, Expect, load_golden, problems, section_ids
 from vitae.judge import judge
 from vitae.llm import chat
 from vitae.prompt import system_message, user_message
+from vitae.retrieval import Retriever, chunk_docs, load_aliases, load_topics, query_for, topic_problems
+from vitae.smalltalk import is_small_talk
 from vitae.knowledge import (
     QwenTokenizer,
     budget_rows,
@@ -52,7 +55,8 @@ def golden(root: Path) -> int:
     for category in Category:
         print(f"{category.value:<13} dev {counts[(category, 'dev')]:>3}  test {counts[(category, 'test')]:>3}")
     print(f"{'total':<13} dev {sum(item.split == 'dev' for item in items):>3}  test {sum(item.split == 'test' for item in items):>3}")
-    found = problems(items, section_ids(load_knowledge(root / "knowledge")))
+    known = section_ids(load_knowledge(root / "knowledge"))
+    found = problems(items, known) + topic_problems(root / "knowledge" / "topics.toml", known)
     for problem in found:
         print(f"problem: {problem}")
     return 1 if found else 0
@@ -136,6 +140,59 @@ def calibrate(root: Path, step: str, name: str, server: str) -> int:
     return 0 if passed else 1
 
 
+def eval_retrieval(root: Path, split: str) -> int:
+    config = load_config(root / "config" / "assistant.toml")
+    topic_of = load_topics(root / "knowledge" / "topics.toml")
+    retriever = Retriever(chunk_docs(load_knowledge(root / "knowledge"), topic_of), config, root / "models")
+    aliases = load_aliases(root / "knowledge" / "aliases.toml")
+    items = [item for item in load_golden(root / "eval" / "golden") if item.split == split]
+    results = [
+        Ranked(item, frozenset(topic_of[s].name for s in item.sections), retriever.search(query_for(item.turns, aliases)))
+        for item in items
+    ]
+
+    answerable = [result for result in results if result.gold]
+    print(f"{len(retriever.chunks)} chunks; {split}: {len(answerable)} items with gold topics")
+    for category in Category:
+        group = [result for result in answerable if result.item.category is category]
+        if group:
+            recall = mean([result.recall() for result in group])
+            hit1 = mean([result.recall(1) == 1 for result in group])
+            print(f"  {category.value:<9} n={len(group):>3}  recall@{RECALL_K} {recall:.3f}  hit@1 {hit1:.3f}  MRR {mean([r.reciprocal_rank for r in group]):.3f}")
+    recall = mean([result.recall() for result in answerable])
+    print(f"  {'all':<9} n={len(answerable):>3}  recall@{RECALL_K} {recall:.3f}")
+    for result in answerable:
+        if result.recall() < 1:
+            print(f"  miss {result.item.id}: {result.item.question!r} lacks {sorted(result.gold - set(result.topics[:RECALL_K]))}; got {result.topics[:RECALL_K]}")
+
+    must_answer = [r for r in results if r.item.expect in (Expect.ANSWER, Expect.NOT_REFUSE) and not is_small_talk(r.item.question)]
+    gated = [r for r in results if not is_small_talk(r.item.question)]
+    print()
+    print("refusal gate sweep: share refused when relevance is below the threshold (small talk is answered before the gate)")
+    print("  threshold  " + "  ".join(f"{c.value:>12}" for c in Category) + "  must-answer")
+    for threshold in [round(0.50 + step * 0.01, 2) for step in range(26)]:
+        rates = refusal_rates(gated, threshold)
+        lost = mean([r.retrieval.refused(threshold) for r in must_answer])
+        print(f"  {threshold:>9.2f}  " + "  ".join(f"{rates.get(c, 0):>12.2f}" for c in Category) + f"  {lost:>11.2f}")
+
+    below = config.refuse_below
+    rates = refusal_rates(gated, below)
+    benign = [r for r in results if r.item.category is Category.BENIGN]
+    benign_lost = mean([not is_small_talk(r.item.question) and r.retrieval.refused(below) for r in benign])
+    lost = mean([r.retrieval.refused(below) for r in must_answer])
+    print()
+    print(f"at refuse_below = {below}: offtopic refused {rates[Category.OFFTOPIC]:.2f}, benign refused {benign_lost:.2f}, must-answer refused {lost:.2f}")
+    for result in must_answer:
+        if result.retrieval.refused(below):
+            print(f"  wrongly refused {result.item.id} ({result.retrieval.relevance:.3f}): {result.item.question!r}")
+    for result in results:
+        if result.item.category is Category.OFFTOPIC and not result.retrieval.refused(below):
+            print(f"  let through {result.item.id} ({result.retrieval.relevance:.3f}): {result.item.question!r}")
+    passed = recall >= 0.97 and rates[Category.OFFTOPIC] >= 0.9 and benign_lost <= 0.03
+    print("gate: pass" if passed else "gate: fail (recall@4 >= 0.97, offtopic refused >= 0.90, benign refused <= 0.03)")
+    return 0 if passed else 1
+
+
 def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(prog="assistant")
@@ -150,7 +207,13 @@ def main() -> None:
     calibrate_cmd.add_argument("--set", dest="name", choices=["tune", "holdout"], default="tune")
     calibrate_cmd.add_argument("--root", type=Path, default=Path("."))
     calibrate_cmd.add_argument("--server", default="http://127.0.0.1:8080")
+    eval_cmd = commands.add_parser("eval", help="run an eval")
+    eval_cmd.add_argument("kind", choices=["retrieval"])
+    eval_cmd.add_argument("--split", choices=["dev", "test"], default="dev")
+    eval_cmd.add_argument("--root", type=Path, default=Path("."))
     args = parser.parse_args()
+    if args.command == "eval":
+        sys.exit(eval_retrieval(args.root, args.split))
     if args.command == "golden":
         sys.exit(golden(args.root))
     if args.command == "calibrate":
