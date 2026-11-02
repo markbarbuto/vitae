@@ -3,7 +3,11 @@ import re
 from vitae.golden import PHONE
 
 THINK_TAG = re.compile(r"</?think>")
-DECLINE = re.compile(r"(I (don't|do not|haven't|have not) (have|know|share|mention|list)|I'?m not sure|I am not sure)\b", re.I)
+DECLINE = re.compile(
+    r"(I (don't|do not|haven't|have not) (have|know|share|mention|list|announced|shared|published)"
+    r"|I (cannot|can't|can not|am unable to|am not able to)|I'?m not sure|I am not sure)\b",
+    re.I,
+)
 HOLDBACK = 16
 
 

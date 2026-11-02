@@ -68,6 +68,7 @@ class Pipeline:
     refusal_text: str
     small_talk_text: str
     hints: int = 3
+    hint_of: dict[str, str] = field(default_factory=dict)
 
     def answer(self, question: str, history: tuple[str, ...] = ()) -> Iterator[Event]:
         start = time.perf_counter()
@@ -88,7 +89,7 @@ class Pipeline:
 
         topics = tuple(hit.topic for hit in retrieval.hits[:3])
         yield Meta(topics, tuple(source for topic in topics for source in self.sources_of[topic]))
-        hints = topics[: self.hints]
+        hints = tuple(self.hint_of.get(topic, topic) for topic in topics[: self.hints])
         messages = [{"role": "system", "content": self.system}, {"role": "user", "content": user_message(turns, hints)}]
         guard, first = OutputGuard(), None
         for delta in self.generate(messages):

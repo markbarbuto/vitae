@@ -15,7 +15,7 @@ from vitae.config import load_config
 from vitae.knowledge import load_knowledge
 from vitae.pipeline import SAMPLING, Done, Event, Pipeline
 from vitae.prompt import SMALL_TALK_TEXT, refusal_text, system_message
-from vitae.retrieval import Retriever, chunk_docs, load_aliases, load_topics
+from vitae.retrieval import Retriever, chunk_docs, load_aliases, load_hints, load_topics
 
 QUEUE = 3
 
@@ -74,6 +74,7 @@ def build(root: Path, llm_url: str, hints: int) -> Pipeline:
         refusal_text=refusal_text(config.contact_email),
         small_talk_text=SMALL_TALK_TEXT,
         hints=hints,
+        hint_of=load_hints(root / "knowledge" / "topics.toml"),
     )
 
 
