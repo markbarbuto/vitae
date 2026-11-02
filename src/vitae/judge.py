@@ -12,9 +12,11 @@ Grade in two parts.
 
 1. Faithfulness. Split the answer into atomic factual claims about Mark, his work, his projects, his interests or the assistant itself. Skip greetings, offers to help and pure phrasing. For each claim, quote the shortest knowledge-base text that supports it as evidence, then set supported. A claim is supported only if the knowledge base states it or it follows directly from what is stated. A claim that attaches a real fact to the wrong employer, project, date or number is unsupported. Persuasive wording is fine when the fact under it is supported.
 
-2. Correctness. Compare the answer with the reference answer. The answer is correct if it answers the question asked and its main facts agree with the reference. It may add other supported facts and may leave out minor details of the reference. It is incorrect if it misses the main fact the question asks for, contradicts the reference, or is the refusal {NO_ANSWER}. For a follow-up, the previous question gives the context of the question.
-
-Give a short reason before the correct verdict."""
+2. Correctness. Answer these separately. Do not let one decide another, and do not repeat faithfulness: a wrong side detail was already graded above.
+- asks_for: in a few words, what the question asks for. For a follow-up, the previous question gives the context.
+- answered: true if the answer gives the asker what the question asks for. The reference answer is one good answer, not a checklist. Leaving out some of its items or details still counts as answered, and for open questions such as a pitch, a comparison or a timeline any answer that covers the substance counts. False if the answer misses it or is the refusal {NO_ANSWER}.
+- wrong_on_asked: true only if the answer states something false or unsupported as part of the very thing asked for, such as the wrong award when asked which award, or a project that does not exist when asked which projects.
+Give a short reason last."""
 
 SCHEMA = {
     "type": "object",
@@ -32,10 +34,12 @@ SCHEMA = {
                 "required": ["claim", "evidence", "supported"],
             },
         },
+        "asks_for": {"type": "string", "maxLength": 200},
+        "answered": {"type": "boolean"},
+        "wrong_on_asked": {"type": "boolean"},
         "reason": {"type": "string", "maxLength": 600},
-        "correct": {"type": "boolean"},
     },
-    "required": ["claims", "reason", "correct"],
+    "required": ["claims", "asks_for", "answered", "wrong_on_asked", "reason"],
 }
 
 
@@ -49,19 +53,27 @@ class Claim:
 @dataclass(frozen=True)
 class Verdict:
     claims: tuple[Claim, ...]
+    asks_for: str
+    answered: bool
+    wrong_on_asked: bool
     reason: str
-    correct: bool
 
     @property
     def faithful(self) -> bool:
         return all(claim.supported for claim in self.claims)
 
+    @property
+    def correct(self) -> bool:
+        return self.answered and not self.wrong_on_asked
+
 
 def parse_verdict(raw: dict) -> Verdict:
     return Verdict(
         claims=tuple(Claim(c["claim"], c["evidence"], bool(c["supported"])) for c in raw["claims"]),
+        asks_for=raw["asks_for"],
+        answered=bool(raw["answered"]),
+        wrong_on_asked=bool(raw["wrong_on_asked"]),
         reason=raw["reason"],
-        correct=bool(raw["correct"]),
     )
 
 

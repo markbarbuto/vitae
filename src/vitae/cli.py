@@ -110,7 +110,7 @@ def calibrate(root: Path, step: str, server: str) -> int:
             if row["id"] in done:
                 continue
             verdict = judge(server, docs, items[row["id"]], row["answer"])
-            rows.append({"id": row["id"], **asdict(verdict), "faithful": verdict.faithful})
+            rows.append({"id": row["id"], **asdict(verdict), "correct": verdict.correct, "faithful": verdict.faithful})
             write_jsonl(folder / "judge.jsonl", rows)
             print(f"{row['id']}: correct={verdict.correct} faithful={verdict.faithful}", flush=True)
         return 0
@@ -127,12 +127,15 @@ def calibrate(root: Path, step: str, server: str) -> int:
         print(f"{field:<9} agree {result.agree}/{result.n} = {result.rate:.1%}  kappa {result.kappa:.2f}")
         for item_id, h, m in zip(ids, human, machine):
             if h != m:
-                print(f"  {item_id}: Mark {'y' if h else 'n'}, judge {'y' if m else 'n'}: {verdicts[item_id]['reason']}")
+                v = verdicts[item_id]
+                why = f"answered={v['answered']} wrong_on_asked={v['wrong_on_asked']}"
+                print(f"  {item_id}: Mark {'y' if h else 'n'}, judge {'y' if m else 'n'}: {why}. {v['reason']}")
     print("gate: pass" if passed else "gate: fail (needs >= 90% on both)")
     return 0 if passed else 1
 
 
 def main() -> None:
+    sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(prog="assistant")
     commands = parser.add_subparsers(dest="command", required=True)
     knowledge_cmd = commands.add_parser("knowledge", help="regenerate self.md and report the prefix token budget")

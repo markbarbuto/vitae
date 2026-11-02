@@ -36,9 +36,25 @@ def test_an_answer_is_faithful_only_when_every_claim_is_supported():
                 {"claim": "I work at Balanced+.", "evidence": "Software Developer at Balanced+", "supported": True},
                 {"claim": "I won a Nobel Prize.", "evidence": "", "supported": False},
             ],
+            "asks_for": "where I work",
+            "answered": True,
+            "wrong_on_asked": False,
             "reason": "Invented award.",
-            "correct": True,
         }
     )
 
     assert (verdict.correct, verdict.faithful) == (True, False)
+
+
+def test_a_wrong_fact_in_what_was_asked_makes_an_answer_incorrect():
+    verdict = parse_verdict(
+        {
+            "claims": [{"claim": "Celestica gave me the Award of Excellence.", "evidence": "", "supported": False}],
+            "asks_for": "which award I got at Celestica",
+            "answered": True,
+            "wrong_on_asked": True,
+            "reason": "Wrong award for Celestica.",
+        }
+    )
+
+    assert (verdict.correct, verdict.faithful) == (False, False)

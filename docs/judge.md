@@ -1,6 +1,6 @@
 # Judge and calibration
 
-The eval judge is `gpt-oss-20b` running locally on the desktop GPU (RX 6950 XT, 16 GB) through llama.cpp's Vulkan build. It grades answerable golden items for correctness against the reference answer and for claim-level faithfulness against the whole knowledge base.
+The eval judge is `gpt-oss-20b` running locally on the desktop GPU (RX 6950 XT, 16 GB) through llama.cpp's Vulkan build. It grades answerable golden items for correctness, using the reference answer as a guide, and for claim-level faithfulness against the whole knowledge base.
 
 ## Files
 
@@ -37,6 +37,27 @@ To redo calibration from scratch, start Qwen3.5-4B the same way on port 8081, th
 `-ncmoe 99` keeps the mixture-of-experts weights on the CPU and everything else on the GPU. On the RX 6950 XT with AMD's Windows Vulkan driver, the MXFP4 expert kernels are slow: `llama-bench` measured 12.9 tok/s decode with all layers on the GPU, 12.4 tok/s on the CPU alone, and 18.2 tok/s split this way. Qwen3.5-4B runs at 140 tok/s on the same GPU, so the GPU itself is fine. `--parallel 1` keeps one slot, so the 5,100-token knowledge prefix stays cached: after the first call each verdict reprocesses about 150 tokens and spends 35 to 50 s on reasoning. The 40 calibration verdicts take about 30 minutes.
 
 `judge.jsonl` is written after every verdict, and `calibrate judge` skips items it already has, so an interrupted run resumes. The schema caps claim, evidence and reason lengths; a verdict that still comes back empty is retried once at temperature 0.3.
+
+## How the judge decides correctness
+
+The judge never outputs `correct` directly. It fills in `asks_for`, `answered` (the reference is one good answer, not a checklist) and `wrong_on_asked` (something false in the very thing asked for), and `Verdict.correct` is `answered and not wrong_on_asked`. A wrong side detail counts only against faithfulness.
+
+## Calibration results
+
+Mark labelled the 40 answers blind. Two labels were corrected after review: resume-09 (Celestica gave the People Driven Award, not the Award of Excellence) and multi-05 (Green P.I. did use SQL Server). Each rubric was scored on the same 40 answers:
+
+| Rubric | `correct` | `faithful` |
+|---|---|---|
+| One correct verdict, reference as main facts | 28/40 (kappa 0.36) | 39/40 (0.92) |
+| Same, reworded: reference is not a checklist | 32/40 (0.53) | 38/40 (0.86) |
+| Separate fields plus an `off_topic` list | 24/40 (0.28) | 39/40 (0.93) |
+| Separate fields, no `off_topic` (current) | 36/40 (0.75) | 38/40 (0.86) |
+
+The current rubric passes the gate at exactly 90%. Known limits:
+
+- **Padding.** The judge cannot tell useful extra detail from padding. With an `off_topic` field it flagged harmless extras on 13 correct answers and still missed the two Mark objected to (benign-07, resume-07). Answer focus and length belong to Phase 4's prompt and output checks.
+- **Run-to-run noise.** Verdicts on followup-11, multi-01 and multi-05 changed between runs when only unrelated rubric text changed.
+- **Overfitting.** The rubric was chosen on these 40 answers, so 90% overstates it. A fresh blind batch confirms it.
 
 ## Why kappa as well as agreement
 
