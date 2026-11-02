@@ -67,8 +67,9 @@ def write_jsonl(path: Path, rows: list[dict]) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
 
 
-def calibrate(root: Path, step: str, server: str) -> int:
-    folder = root / "eval" / "calibration"
+def calibrate(root: Path, step: str, name: str, server: str) -> int:
+    tune = root / "eval" / "calibration"
+    folder = tune if name == "tune" else tune / name
     folder.mkdir(parents=True, exist_ok=True)
     docs = load_knowledge(root / "knowledge")
     items = {item.id: item for item in load_golden(root / "eval" / "golden")}
@@ -77,7 +78,8 @@ def calibrate(root: Path, step: str, server: str) -> int:
     if step == "answers":
         config = load_config(root / "config" / "assistant.toml")
         rows = []
-        for item in sample(list(items.values())):
+        exclude = frozenset() if name == "tune" else frozenset(row["id"] for row in read_jsonl(tune / "answers.jsonl"))
+        for item in sample(list(items.values()), name, exclude):
             message = chat(
                 server,
                 [{"role": "system", "content": system_message(docs)}, {"role": "user", "content": user_message(item.turns)}],
@@ -98,7 +100,7 @@ def calibrate(root: Path, step: str, server: str) -> int:
             return 1
         rows = read_jsonl(answers)
         random.Random(0).shuffle(rows)
-        sheet.write_text(render_sheet([(items[row["id"]], row["answer"]) for row in rows]), encoding="utf-8", newline="\n")
+        sheet.write_text(render_sheet([(items[row["id"]], row["answer"]) for row in rows], name), encoding="utf-8", newline="\n")
         print(f"wrote {sheet}")
         return 0
 
@@ -145,11 +147,12 @@ def main() -> None:
     golden_cmd.add_argument("--root", type=Path, default=Path("."))
     calibrate_cmd = commands.add_parser("calibrate", help="calibrate the judge against Mark's labels")
     calibrate_cmd.add_argument("step", choices=["answers", "sheet", "judge", "score"])
+    calibrate_cmd.add_argument("--set", dest="name", choices=["tune", "holdout"], default="tune")
     calibrate_cmd.add_argument("--root", type=Path, default=Path("."))
     calibrate_cmd.add_argument("--server", default="http://127.0.0.1:8080")
     args = parser.parse_args()
     if args.command == "golden":
         sys.exit(golden(args.root))
     if args.command == "calibrate":
-        sys.exit(calibrate(args.root, args.step, args.server))
+        sys.exit(calibrate(args.root, args.step, args.name, args.server))
     sys.exit(knowledge(args.root, args.check))

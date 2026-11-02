@@ -3,7 +3,10 @@ from dataclasses import dataclass
 
 from vitae.golden import Category, GoldenItem
 
-QUOTAS = {Category.RESUME: 12, Category.SITE: 10, Category.MULTI: 7, Category.FOLLOWUP: 7, Category.BENIGN: 4}
+QUOTAS = {
+    "tune": {Category.RESUME: 12, Category.SITE: 10, Category.MULTI: 7, Category.FOLLOWUP: 7, Category.BENIGN: 4},
+    "holdout": {Category.RESUME: 4, Category.SITE: 4, Category.MULTI: 3, Category.FOLLOWUP: 3, Category.BENIGN: 1},
+}
 
 SHEET_HEADER = """# Calibration labels
 
@@ -12,7 +15,7 @@ Label each answer by hand, without looking at the judge's output. Write `y` or `
 - **correct**: the answer responds to the question, and its main facts agree with the reference. Extra true details are fine. Leaving out a minor detail is fine.
 - **faithful**: every fact the answer states about you is true according to your knowledge base. One wrong employer, date, number or invented detail makes it `n`, even if the main answer is right.
 
-Use `note` for anything worth discussing. Then run `uv run assistant calibrate score`.
+Use `note` for anything worth discussing. Then run `uv run assistant calibrate score{flag}`.
 """
 
 LABEL = re.compile(r"^- (correct|faithful|note):[ \t]*(.*)$", re.MULTILINE)
@@ -26,16 +29,20 @@ class Label:
     note: str
 
 
-def sample(items: list[GoldenItem]) -> list[GoldenItem]:
+def sample(items: list[GoldenItem], name: str, exclude: frozenset[str] = frozenset()) -> list[GoldenItem]:
     chosen = []
-    for category, quota in QUOTAS.items():
-        pool = [item for item in items if item.split == "dev" and item.category is category and item.reference]
+    for category, quota in QUOTAS[name].items():
+        pool = [
+            item
+            for item in items
+            if item.split == "dev" and item.category is category and item.reference and item.id not in exclude
+        ]
         chosen += [pool[index * len(pool) // quota] for index in range(quota)]
     return chosen
 
 
-def render_sheet(entries: list[tuple[GoldenItem, str]]) -> str:
-    blocks = [SHEET_HEADER]
+def render_sheet(entries: list[tuple[GoldenItem, str]], name: str) -> str:
+    blocks = [SHEET_HEADER.format(flag="" if name == "tune" else f" --set {name}")]
     for item, answer in entries:
         previous = f"**Previous question:** {item.turns[-2]}\n\n" if len(item.turns) > 1 else ""
         blocks.append(

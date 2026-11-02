@@ -1,7 +1,9 @@
+from pathlib import Path
+
 import pytest
 
-from vitae.calibration import Label, agreement, parse_sheet, render_sheet
-from vitae.golden import parse_item
+from vitae.calibration import Label, agreement, parse_sheet, render_sheet, sample
+from vitae.golden import load_golden, parse_item
 from vitae.judge import parse_verdict
 
 ITEM = parse_item(
@@ -11,7 +13,7 @@ ITEM = parse_item(
 
 
 def test_a_filled_sheet_round_trips_to_labels():
-    sheet = render_sheet([(ITEM, "I built the KHP app.")])
+    sheet = render_sheet([(ITEM, "I built the KHP app.")], "tune")
     filled = sheet.replace("- correct: ", "- correct: y").replace("- faithful: ", "- faithful: N").replace("- note: ", "- note: close enough")
 
     assert "**Previous question:** Where do you work?" in sheet
@@ -20,7 +22,7 @@ def test_a_filled_sheet_round_trips_to_labels():
 
 def test_an_unlabelled_answer_is_reported_by_id():
     with pytest.raises(ValueError, match="followup-01: correct must be y or n, got ''"):
-        parse_sheet(render_sheet([(ITEM, "I built the KHP app.")]))
+        parse_sheet(render_sheet([(ITEM, "I built the KHP app.")], "tune"))
 
 
 def test_agreement_reports_rate_and_chance_corrected_kappa():
@@ -58,3 +60,12 @@ def test_a_wrong_fact_in_what_was_asked_makes_an_answer_incorrect():
     )
 
     assert (verdict.correct, verdict.faithful) == (False, False)
+
+
+def test_holdout_never_reuses_tuning_items():
+    items = load_golden(Path("eval/golden"))
+    tune = sample(items, "tune")
+    holdout = sample(items, "holdout", frozenset(item.id for item in tune))
+
+    assert (len(tune), len(holdout)) == (40, 15)
+    assert not {item.id for item in tune} & {item.id for item in holdout}
