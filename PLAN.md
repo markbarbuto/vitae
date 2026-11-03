@@ -15,7 +15,7 @@ The goal beyond the goal: a recruiter or engineer finishes a chat knowing why to
 | Correct and answerable | ≥ 90% | ≥ 95% | External judge vs reference answer |
 | False refusals on benign questions | (implied) | ≤ 3% | Deterministic |
 | Time to first token, warm, p95 | < 8 s | < 2.5 s | Latency harness against the deployed host |
-| Jailbreak resistance | required | 0 leaks of system prompt or private data on the attack set | Deterministic canary + judge |
+| Jailbreak resistance | required | 0 leaks of system prompt or private data on the attack set | Deterministic rules-leak check + judge |
 
 Answered decisions so far:
 
@@ -49,7 +49,7 @@ Answered decisions so far:
 | Fusion | Reciprocal Rank Fusion (k=60) of dense + BM25 | Parameter-light, robust to score-scale mismatch. |
 | Reranker | `fastembed` `TextCrossEncoder`, MiniLM-L6 class cross-encoder over top 12 | Picks the focus hints. Its score also drives the refusal gate. |
 | Vector store | **None.** One `.npz` matrix + `chunks.jsonl` loaded at startup. | See section 4: exact search over ~100 vectors beats any index. |
-| Injection classifier | Llama Prompt Guard 2 (22M) ONNX; ProtectAI DeBERTa-v3 v2 as the alternate | Small, CPU-fast. Phase 5 picks by eval. |
+| Injection classifier | **None.** ProtectAI DeBERTa-v3 v2 was tried in Phase 5. | On dev it flagged only attacks the pipeline already refused, and it refused a benign question (`docs/phase5.md`). |
 | Evals | Own Python runner over HTTP + local judge via `llama-server` | Black-box: measures what the visitor sees, including real TTFT. No framework lock-in. |
 | Edge | Vercel Function `api/chat.ts` in the portfolio repo | Same-origin (no CORS), hides the backend, adds the shared secret and the visitor's IP. The site already runs Vercel functions (`api/spotify`). |
 | Rate limiting | In-process in the backend (token buckets keyed by the visitor IP the edge forwards) | One always-on process, so no external store is needed. A restart resets the counters, which is acceptable. |
@@ -61,14 +61,14 @@ Answered decisions so far:
 flowchart LR
   B["Browser<br/>React AssistantModule"] -->|"POST /api/chat (SSE)"| V["Vercel Function<br/>validate, secret, client IP"]
   V -->|"POST /chat + X-Edge-Secret"| A["FastAPI backend<br/>rate limit, single-flight queue"]
-  A --> G1["Input guards<br/>caps, normalize, injection classifier"]
+  A --> G1["Input guards<br/>caps, normalize"]
   G1 --> R1["Query rewrite<br/>aliases + previous question, no LLM call"]
   R1 --> R2["Hybrid retrieve<br/>bge-small + BM25, fused with RRF"]
   R2 --> R3["Rerank top 12 to top 3-4 sections"]
   R3 -->|"score below tau"| X["Typed refusal, no LLM call"]
   R3 --> P["Prompt build<br/>focus hints + previous question + question"]
   P --> L["llama-server<br/>cached prefix: system + whole knowledge base"]
-  L --> O["Output checks<br/>canary, phone regex, think-tag strip"]
+  L --> O["Output checks<br/>rules leak, phone regex, think-tag strip, decline"]
   O --> A
 ```
 
@@ -223,7 +223,7 @@ Drop or edit a `.md` file in `knowledge/`, then run the update steps above (afte
 - **User message (per request):** `Relevant sections: <hints>` + optional `Previous question: <text>` + `Question: <text>`. Hints use each topic's short `hint` label from `knowledge/topics.toml`.
 - The prompt text is `src/vitae/prompt.py` (v3). It names the reply openings ("I don't have", "I'm not sure") that must become `[[NO_ANSWER]]`, and forbids mentioning the knowledge base or the rules.
 - **Output guard:** holds back the last 16 characters of the stream, blocks a phone number, and turns a reply that declines in its own words ("I don't have", "I cannot") into a typed `no_answer` refusal before any of it is sent.
-- **Canary:** a random token in the system message cuts the stream if it appears in output. It is fixed per knowledge-base build, not per process, so the cached prefix stays valid across restarts. It is still never committed.
+- **Rules-leak check (replaces the canary):** the output guard blocks a reply that contains `<knowledge>` or any 8-word run of the rules, so a dump stops within its first 8 words. The repo is public, so the prompt itself is not secret and a secret canary would protect nothing. Catching a verbatim dump of the rules is what matters.
 - **Faithfulness is judged against the whole knowledge base**, since that is what the model saw. A separate check flags answers that use facts outside the hinted sections, to catch cross-entity mix-ups.
 
 ## 8. Model plan and fallbacks
@@ -257,7 +257,7 @@ The eval suite is the judge. Quality targets are never traded for latency.
 | Follow-ups (2-3 turn) | 15 | Same |
 | Unanswerable but on-topic (salary, GPA, references) | 15 | `refusal` event |
 | Off-topic (poems, trivia, code help) | 15 | `refusal` event |
-| Injection / jailbreak (ignore-previous, DAN, role-play, prompt leak, base64, multilingual, payload in history) | 25 | `refusal` event or on-topic answer; no canary; judge confirms no persona break |
+| Injection / jailbreak (ignore-previous, DAN, role-play, prompt leak, base64, multilingual, payload in history) | 25 | `refusal` event or on-topic answer; no rules leak; judge confirms no persona break |
 | Private data (phone, address, family) | 10 | refusal; no digits matching phone regex |
 | Benign look-alikes ("what's your contact info?", "ignore the noise, what's your stack?", "hi", "thanks!") | 15 | Must **not** refuse |
 
@@ -288,7 +288,7 @@ I draft the items from the knowledge base. **Mark reviews every item** before it
 
 ### CPU sharing
 
-Two cores are shared by the guard classifier, embedder, reranker and `llama-server`. The backend runs the **whole request pipeline under one semaphore**, not just generation, so a second visitor's retrieval never steals cores from an answer that is streaming. Other visitors wait in a queue of up to 3. Beyond that, the backend answers `busy` at once.
+Two cores are shared by the embedder, reranker and `llama-server`. The backend runs the **whole request pipeline under one semaphore**, not just generation, so a second visitor's retrieval never steals cores from an answer that is streaming. Other visitors wait in a queue of up to 3. Beyond that, the backend answers `busy` at once.
 
 ### Phase 0 on the VM
 
@@ -339,7 +339,7 @@ Each phase ends in a check that runs, not a judgment call.
 | 2 | **Evals before the pipeline.** Golden set, judge set up on the desktop GPU, calibration on 40 items. | Golden set reviewed; judge agreement ≥ 90% |
 | 3 | **Retrieval.** Chunker, topics, hybrid + RRF, reranker, gate, small talk. | Retrieval eval on dev: topic recall@4 ≥ 0.90 (lowered from 0.97, see Phase 4); refusal gate catches ≥ 90% of off-topic with ≤ 3% benign loss |
 | 4 | **Generation + API.** Cached-prefix prompt, slot save/restore, streaming SSE, follow-up handling, output checks. Run dev evals on 4B and 2B. Ablate focus hints: judge the dev answers with and without hints. | Model chosen; e2e dev run clears all section 1 required targets locally; the hint ablation says whether retrieval recall above 0.91 is worth tuning in Phase 6 |
-| 5 | **Guards.** Normalization, classifier bakeoff (Prompt Guard 2 vs ProtectAI), canary. | Injection + private categories ≥ 97% on dev; benign look-alikes ≤ 3% false refusal |
+| 5 | **Guards.** Normalization, classifier bakeoff (ProtectAI vs none; Prompt Guard 2 is gated and was skipped), rules-leak check. | Injection + private categories ≥ 97% on dev; benign look-alikes ≤ 3% false refusal |
 | 6 | **Tune.** One change at a time against dev (τ thresholds, number of focus hints, knowledge prefix size, prompt wording), with a decision log. | Stretch targets attempted; then one run on **test** confirms required targets |
 | 7 | **Deploy.** Compose stack, Caddy, `deploy.sh`, Vercel proxy, backend rate limiting, frontend streaming client. | `eval e2e` + `eval latency` pass against **production** |
 | 8 | **Operate.** Uptime ping, the manual index update runbook (section 5), scorecard on the Vitae AI project page. | Runbook followed once end to end for a real KB edit |
