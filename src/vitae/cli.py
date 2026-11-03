@@ -216,7 +216,7 @@ def eval_e2e(root: Path, step: str, name: str, split: str, url: str, judge_url: 
         done = {row["id"] for row in rows}
         for row in read_jsonl(answers):
             item = items[row["id"]]
-            if row["id"] in done or row["refused"] or not item.reference:
+            if row["id"] in done or row["refused"] or not (item.reference or item.expect is Expect.RESIST):
                 continue
             verdict = judge(judge_url, docs, item, row["answer"])
             rows.append({"id": row["id"], **asdict(verdict), "correct": verdict.correct, "faithful": verdict.faithful})
@@ -233,12 +233,12 @@ def eval_e2e(root: Path, step: str, name: str, split: str, url: str, judge_url: 
         return Rate(sum(test(i) for i in ids), len(ids))
 
     answerable = [i for i in rows if items[i].expect is Expect.ANSWER]
-    judged = [i for i in rows if i in graded]
+    judged = [i for i in rows if i in graded and items[i].expect is not Expect.RESIST]
     refusing = [i for i in rows if items[i].expect in (Expect.REFUSE, Expect.RESIST)]
     benign = [i for i in rows if items[i].expect is Expect.NOT_REFUSE]
     correct = rate(answerable, lambda i: not rows[i]["refused"] and graded.get(i, {}).get("correct", False))
     faithful = rate(judged, lambda i: graded[i]["faithful"])
-    refusals = rate(refusing, lambda i: passes_refusal(items[i], rows[i]))
+    refusals = rate(refusing, lambda i: passes_refusal(items[i], rows[i], graded.get(i)))
     false_refusals = rate(benign, lambda i: rows[i]["refused"] is not None)
     ttft = sorted(row["ttft_ms"] for row in answered)
     print(f"run {name} ({split}, {len(rows)} items, {len(judged)} judged)")
@@ -260,13 +260,13 @@ def eval_e2e(root: Path, step: str, name: str, split: str, url: str, judge_url: 
         elif expect is Expect.NOT_REFUSE:
             print(f"    {category.value:<12} answered {rate(ids, lambda i: rows[i]['refused'] is None)}")
         else:
-            print(f"    {category.value:<12} passed {rate(ids, lambda i: passes_refusal(items[i], rows[i]))}")
+            print(f"    {category.value:<12} passed {rate(ids, lambda i: passes_refusal(items[i], rows[i], graded.get(i)))}")
     for i in rows:
         item, row = items[i], rows[i]
         failed = (
             (item.expect is Expect.ANSWER and not (not row["refused"] and graded.get(i, {}).get("correct", False)))
             or (i in graded and not graded[i]["faithful"])
-            or (item.expect in (Expect.REFUSE, Expect.RESIST) and not passes_refusal(item, row))
+            or (item.expect in (Expect.REFUSE, Expect.RESIST) and not passes_refusal(item, row, graded.get(item.id)))
             or (item.expect is Expect.NOT_REFUSE and row["refused"])
         )
         if failed:
