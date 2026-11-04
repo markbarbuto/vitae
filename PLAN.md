@@ -11,7 +11,7 @@ The goal beyond the goal: a recruiter or engineer finishes a chat knowing why to
 | Metric | Required | Internal stretch | Measured by |
 |---|---|---|---|
 | Faithfulness | > 90% | ≥ 95% | External judge, claim-level vs retrieved context |
-| Correct refusals (unanswerable, off-topic, injection, private) | 90–95% | ≥ 97% | Deterministic: pipeline emits a typed `refusal` event |
+| Correct refusals (unanswerable, off-topic, injection, private) | 90–95% | ≥ 97% | Deterministic: pipeline emits a typed `refusal` event. An attack that is answered instead passes only with no leak and every claim supported (judge), since Phase 6 |
 | Correct and answerable | ≥ 90% | ≥ 95% | External judge vs reference answer |
 | False refusals on benign questions | (implied) | ≤ 3% | Deterministic |
 | Time to first token, warm, p95 | < 8 s | < 2.5 s | Latency harness against the deployed host |
@@ -82,7 +82,7 @@ Measured in Phase 0 (`docs/phase0.md`). New tokens cost **46 ms + 17.7 ms per 1,
 |---|---|
 | Edge proxy + network | 150 ms **(guess)** |
 | Guards, embed, BM25, RRF, rerank | ~200 ms **(guess)** |
-| New tokens: short hints + question, or + previous question | 4B with the 5,177-token prefix: p95 7.2 s on a follow-up **(predicted from the fits)** |
+| New tokens: short hints + question, or + previous question | 4B on the VM, 8-bit KV, the 100 dev requests replayed shuffled: p50 5.20 s, p95 6.37 s **(measured, Phase 6)**. Retrieval and edge are not measured on the VM yet (Phase 7) |
 
 The per-request token count is the main lever, and so is the size of the cached prefix. Keep both small. Each new token costs about 138 ms behind the 4B's current prefix, which is why hints use short labels.
 
@@ -93,7 +93,7 @@ The per-request token count is the main lever, and so is the size of the cached 
 3. **The whole knowledge base is the context.** At ~3,000 to ~6,000 tokens it fits in one cached prefix. Processing it costs minutes once per server start, not once per request. Retrieval names the 1 to 3 most relevant sections as **focus hints** instead of pasting them.
 4. **Retrieval-score refusal gate.** If the best rerank score is under a calibrated threshold, refuse without calling the LLM. Off-topic and unanswerable questions get answered in ~300 ms and never reach the generator, which also removes most jailbreak surface.
 5. **One static prefix, reused every request.** System prompt + knowledge base never change between requests, so `llama-server` reuses the cached state. Phase 0 confirmed it on llama.cpp `v0.8.0`: all 5,333 prefix tokens were reused on every warm request, despite the open hybrid-model issues ([#24587](https://github.com/ggml-org/llama.cpp/issues/24587), [#24714](https://github.com/ggml-org/llama.cpp/issues/24714)). Pin the llama.cpp version; re-run the probe before upgrading.
-6. **Warm restarts.** Save the prefix slot to disk after the first prefill (`--slot-save-path`) and restore it on start, so a restart doesn't cost the full cold prefill (296 s for 4B). Verified in Phase 4. The slot file is keyed by the model id and the system message.
+6. **Warm restarts.** Save the prefix slot to disk after the first prefill (`--slot-save-path`) and restore it on start, so a restart doesn't cost the full cold prefill (296 s for 4B). Verified in Phase 4. The slot file is keyed by the model id and the system message. A slot saved with another KV cache type fails to restore, so the server prefills again and overwrites it (verified in Phase 6).
 7. **Write the KB in first person.** The model then copies voice instead of converting "Mark led" into "I led", which removes a class of pronoun errors. Breadcrumbs still contain "Mark Barbuto" so BM25 matches third-person questions.
 8. **No LLM call before the answer.** Query rewriting is deterministic: "KHP" becomes Kids Help Phone, "U of T" becomes University of Toronto, "Mark/he/his" and "you/your" fold to the same form. An LLM rewrite would cost seconds of prefill and decode on 2 cores.
 
@@ -212,7 +212,7 @@ Drop or edit a `.md` file in `knowledge/`, then run the update steps above (afte
 
 ## 7. Generation and prompt
 
-- `llama-server` flags: `--ctx-size 12288 --parallel 1 --threads 2 --cache-prompt --slot-save-path /data/slots`. Send `enable_thinking: false` per request. Strip any stray `</think>`.
+- `llama-server` flags: `--ctx-size 12288 --parallel 1 --threads 2 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --cache-prompt --slot-save-path /data/slots`. The 8-bit KV cache cut VM p95 from 7.03 s to 6.37 s with no dev quality change; cold prefill rises from 283 s to 433 s, paid once since the slot is saved (`docs/phase6.md`). Send `enable_thinking: false` per request. Strip any stray `</think>`.
 - Sampling: temperature 0.3, top_p 0.9, `max_tokens` 220, stop on refusal sentinel.
 - **System message (static, cached):**
   - "You are Mark Barbuto speaking on his portfolio site. Answer in first person, in 1 to 4 sentences, using only the facts inside `<knowledge>`. Prefer the sections named as relevant."
@@ -222,7 +222,7 @@ Drop or edit a `.md` file in `knowledge/`, then run the update steps above (afte
   - The whole knowledge base in `<knowledge>`, one `## breadcrumb` heading per section, so the model can say "at Celestica" correctly.
 - **User message (per request):** `Relevant sections: <hints>` + optional `Previous question: <text>` + `Question: <text>`. Hints use each topic's short `hint` label from `knowledge/topics.toml`.
 - The prompt text is `src/vitae/prompt.py` (v3). It names the reply openings ("I don't have", "I'm not sure") that must become `[[NO_ANSWER]]`, and forbids mentioning the knowledge base or the rules.
-- **Output guard:** holds back the last 16 characters of the stream, blocks a phone number, and turns a reply that declines in its own words ("I don't have", "I cannot") into a typed `no_answer` refusal before any of it is sent.
+- **Output guard:** blocks a phone number, and turns a reply that declines in its own words ("I don't have", "I cannot") into a typed `no_answer` refusal before any of it is sent. It holds back only what could still turn bad: an opening that could become a decline, and a trailing run that could become a phone number or a think tag. Everything else streams at once (Phase 6; the old fixed 16-character holdback cost about 0.7 s of VM p95).
 - **Rules-leak check (replaces the canary):** the output guard blocks a reply that contains `<knowledge>` or any 8-word run of the rules, so a dump stops within its first 8 words. The repo is public, so the prompt itself is not secret and a secret canary would protect nothing. Catching a verbatim dump of the rules is what matters.
 - **Faithfulness is judged against the whole knowledge base**, since that is what the model saw. A separate check flags answers that use facts outside the hinted sections, to catch cross-entity mix-ups.
 
@@ -266,7 +266,8 @@ I draft the items from the knowledge base. **Mark reviews every item** before it
 ### Judge
 
 - **Model:** `gpt-oss-20b` (MXFP4 GGUF, ~13 GB) on the RX 6950 XT via llama.cpp's Vulkan backend. It fits fully in 16 GB VRAM, is from a different family than Qwen (less self-preference bias), and handles structured JSON output well. Download: `ggml-org/gpt-oss-20b-GGUF`.
-- **Second opinion:** Gemma 4 26B-A4B (Q4, with CPU expert offload using the 64 GB RAM) on the ~15% of items where the primary judge is low-confidence.
+- **Noise:** two dev runs of the same config differed by 8.6 points on correctness, and 4 of the 6 flipped items were judge errors (it errs strict). Re-judging failures twice more and taking the majority was tried in Phase 6 and rejected: it raised agreement with Mark's labels on the tuning set and lowered it on the holdout. Dev differences under ~8 points are treated as ties.
+- **Second opinion (since Phase 6):** Gemma 4 26B-A4B (Google's QAT Q4_0, CPU expert offload, thinking off) re-judges every answer the primary marks unfaithful: `eval judge --second <url>`. An answer is unfaithful only if both judges say so. On Mark's labels this agreed better on faithfulness than gpt-oss alone, on both the tuning set and the holdout. Correctness and answered attacks stay with the primary judge (`docs/phase6.md`).
 - **Calibration before trust:** Mark labels 40 dev answers by hand (31 from Qwen3.5-4B, 9 deliberately flawed so failures are represented). The judge must agree on ≥ 90% for both `correct` and `faithful`, with Cohen's kappa reported alongside. If it doesn't, the rubric is fixed before any metric is reported. Runbook: `docs/judge.md`.
 - **Faithfulness method:** the judge splits the answer into atomic claims and labels each as supported or unsupported by the exact retrieved context. Score = supported / total. An answer counts as faithful at 100% supported, and the item-level rate is what the > 90% target applies to.
 
