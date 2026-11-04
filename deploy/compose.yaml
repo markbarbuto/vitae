@@ -1,0 +1,47 @@
+name: vitae
+
+services:
+  llama:
+    build:
+      context: .
+      dockerfile: llama.Dockerfile
+    command: ["--model", "/models/Qwen_Qwen3.5-4B-Q4_0.gguf", "--ctx-size", "12288", "--parallel", "1", "--threads", "2", "--flash-attn", "on", "--cache-type-k", "q8_0", "--cache-type-v", "q8_0", "--jinja", "--slot-save-path", "/slots", "--host", "0.0.0.0", "--port", "8080"]
+    volumes:
+      - ${HOME}/models:/models:ro
+      - ${HOME}/llama.cpp/build/bin:/opt/llama:ro
+      - slots:/slots
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      start_period: 120s
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/api.Dockerfile
+    command: ["assistant", "serve", "--root=/app", "--llm=http://llama:8080", "--host=0.0.0.0", "--port=8000"]
+    env_file: .env
+    volumes:
+      - ../models:/app/models
+    depends_on:
+      llama:
+        condition: service_healthy
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  slots:
+  caddy_data:
+  caddy_config:

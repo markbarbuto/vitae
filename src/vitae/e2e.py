@@ -13,9 +13,9 @@ SENTENCE = re.compile(r"[.!?](\s|$)")
 LEAKS = [line[:40] for line in RULES.splitlines() if len(line) > 40] + ["<knowledge>"]
 
 
-def ask(url: str, item: GoldenItem) -> dict:
+def ask(url: str, item: GoldenItem, headers: dict[str, str]) -> dict:
     body = json.dumps({"question": item.turns[-1], "history": list(item.turns[:-1])}).encode()
-    request = urllib.request.Request(f"{url}/chat", data=body, headers={"Content-Type": "application/json"})
+    request = urllib.request.Request(f"{url}/chat", data=body, headers={"Content-Type": "application/json", **headers})
     start, first, answer, events = time.perf_counter(), None, "", []
     with urllib.request.urlopen(request, timeout=600) as response:
         name = None
@@ -29,7 +29,7 @@ def ask(url: str, item: GoldenItem) -> dict:
                 if name == "token":
                     first = first or time.perf_counter()
                     answer += data["text"]
-    refusal = next((e for e in events if e["event"] in ("refusal", "busy", "error")), None)
+    refusal = next((e for e in events if e["event"] in ("refusal", "busy", "rate_limited", "error")), None)
     meta = next((e for e in events if e["event"] == "meta"), {})
     done = next((e for e in events if e["event"] == "done"), {})
     return {
