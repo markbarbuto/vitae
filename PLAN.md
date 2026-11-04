@@ -82,7 +82,8 @@ Measured in Phase 0 (`docs/phase0.md`). New tokens cost **46 ms + 17.7 ms per 1,
 |---|---|
 | Edge proxy + network | 150 ms **(guess)** |
 | Guards, embed, BM25, RRF, rerank | ~200 ms **(guess)** |
-| New tokens: short hints + question, or + previous question | 4B on the VM, 8-bit KV, the 100 dev requests replayed shuffled: p50 5.20 s, p95 6.37 s **(measured, Phase 6)**. Retrieval and edge are not measured on the VM yet (Phase 7) |
+| New tokens: short hints + question, or + previous question | 4B on the VM, 8-bit KV, the 100 dev requests replayed shuffled: p50 5.20 s, p95 6.37 s **(measured, Phase 6)** |
+| Whole path, desktop to Caddy to answer | 82 production answers: p50 5.86 s, p95 7.28 s **(measured, Phase 7)**. The Vercel hop is not measured yet |
 
 The per-request token count is the main lever, and so is the size of the cached prefix. Keep both small. Each new token costs about 138 ms behind the 4B's current prefix, which is why hints use short labels.
 
@@ -302,10 +303,13 @@ Two cores are shared by the embedder, reranker and `llama-server`. The backend r
 
 ### Deployment shape
 
-- Docker Compose with two services, `api` and `llama`. Caddy terminates HTTPS for `assistant.markbarbuto.com`, and the firewall allows 443 only, plus 22 from Mark's IP.
-- `api` rejects any request without the edge secret, so the Vercel proxy is the only way in.
-- `deploy/deploy.sh` rsyncs `knowledge/`, `index/` and config over SSH, then runs `docker compose up -d --build`. Images are built on the VM, which avoids cross-compiling for arm64.
-- `llama-server` and `api` restart automatically (`restart: unless-stopped`), and the model file lives in a volume so rebuilds don't copy it.
+Built in Phase 7 (`deploy/`, `docs/phase7.md`):
+
+- Docker Compose with three services: `llama`, `api` and `caddy`. Caddy terminates HTTPS for `assistant.markbarbuto.com` with a Let's Encrypt certificate, obtained over 443 alone. Only 443 is published. The Oracle security list allows 443 and 22. SSH stays open to all, keys only (password login is off). Mark chose that over limiting 22 to his IP, which would lock him out whenever his IP changes.
+- `llama` runs the llama.cpp `v0.8.0` build compiled on the VM in Phase 0, mounted read-only into an `ubuntu:24.04` container. That keeps the pinned, natively tuned binary. GGUF models are mounted from `~/models`, and the prefix slot lives in a named volume, so a restart restores it in seconds instead of a 7-minute prefill.
+- `api` rejects any request without the edge secret (401), so the Vercel proxy is the only way in. Its image installs the locked dependencies with hashes. The retrieval models are copied from the desktop once and loaded offline (`HF_HUB_OFFLINE=1`).
+- `deploy/deploy.sh [service...]` ships `src`, `knowledge`, `config` and `deploy` over SSH (tar), creates `deploy/.env` with random edge and eval secrets the first time, then runs `docker compose up -d --build`. Images are built on the VM, which avoids cross-compiling for arm64.
+- All three services restart automatically (`restart: unless-stopped`). `api` waits for `llama`'s health check.
 
 ## 11. Edge, rate limiting and frontend
 
@@ -319,6 +323,7 @@ Two cores are shared by the embedder, reranker and `llama-server`. The backend r
 - Rate limits per visitor IP: **4/min and 30/day**, plus a **global 300/day** cap. It trusts `X-Client-IP` only when the edge secret is valid. Each request takes tens of seconds of the VM's two cores **(guess)**, so the limits protect capacity, not cost.
 - One request pipeline at a time, a queue of 3, and `busy` beyond that (section 10).
 - Limit hits return a typed `rate_limited` event that the UI renders kindly.
+- The eval runner sends a separate `X-Eval-Secret`, which skips the limits, so a full production eval doesn't use up the daily cap. Limits live in memory (`src/vitae/limits.py`) and reset when the API restarts.
 
 ### Frontend changes
 
