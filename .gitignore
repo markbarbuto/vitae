@@ -21,3 +21,4 @@ node_modules/
 
 # Eval run output
 eval/runs/
+deploy/requirements.txt

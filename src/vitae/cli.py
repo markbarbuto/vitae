@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import random
 import sys
 from collections import Counter
@@ -201,11 +202,13 @@ def eval_e2e(root: Path, step: str, name: str, split: str, url: str, judge_url: 
     answers, verdicts = folder / "answers.jsonl", folder / "judge.jsonl"
 
     if step == "ask":
+        names = {"x-edge-secret": "VITAE_EDGE_SECRET", "x-eval-secret": "VITAE_EVAL_SECRET"}
+        secrets = {header: os.environ[env] for header, env in names.items() if os.environ.get(env)}
         rows = read_jsonl(answers) if answers.exists() else []
         done = {row["id"] for row in rows}
         for item in items.values():
             if item.id not in done:
-                rows.append(ask(url, item))
+                rows.append(ask(url, item, secrets))
                 write_jsonl(answers, rows)
                 print(f"{item.id}: {rows[-1]['refused'] or rows[-1]['answer'][:100]}", flush=True)
         return 0
@@ -308,13 +311,14 @@ def main() -> None:
     serve_cmd = commands.add_parser("serve", help="run the chat API")
     serve_cmd.add_argument("--llm", default="http://127.0.0.1:8081", help="llama-server running the generator")
     serve_cmd.add_argument("--hints", type=int, default=3, help="focus hints sent to the model (0 for the ablation)")
+    serve_cmd.add_argument("--host", default="127.0.0.1")
     serve_cmd.add_argument("--port", type=int, default=8000)
     serve_cmd.add_argument("--root", type=Path, default=Path("."))
     args = parser.parse_args()
     if args.command == "serve":
         from vitae.server import serve
 
-        serve(args.root, args.llm, args.hints, args.port)
+        serve(args.root, args.llm, args.hints, args.host, args.port)
         return
     if args.command == "eval" and args.kind == "retrieval":
         sys.exit(eval_retrieval(args.root, args.split))
